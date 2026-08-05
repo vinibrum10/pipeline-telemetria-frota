@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dados gerados localmente (não versionar)
+data/seed/
+
+# Variáveis de ambiente
+.env
