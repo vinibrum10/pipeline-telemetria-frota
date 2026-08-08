@@ -25,7 +25,7 @@ $$;
 CREATE OR REPLACE FUNCTION staging.safe_date(valor text)
 RETURNS date
 LANGUAGE plpgsql
-IMMUTABLE
+STABLE
 AS $$
 BEGIN
     RETURN valor::date;
@@ -37,7 +37,7 @@ $$;
 CREATE OR REPLACE FUNCTION staging.safe_timestamptz(valor text)
 RETURNS timestamptz
 LANGUAGE plpgsql
-IMMUTABLE
+STABLE
 AS $$
 BEGIN
     RETURN valor::timestamptz;
