@@ -45,7 +45,7 @@ RAW_TABLES: dict[str, str] = {
 def _build_url() -> str:
     usuario = os.environ.get("POSTGRES_USER", "elo_user")
     senha = os.environ.get("POSTGRES_PASSWORD", "troque_esta_senha")
-    banco = os.environ.get("POSTGRES_DB", "elo")
+    banco = os.environ.get("POSTGRES_DB", "elo_test")
     porta = os.environ.get("POSTGRES_PORT", "5432")
     host = os.environ.get("POSTGRES_HOST", "localhost")
     return f"postgresql+psycopg2://{usuario}:{senha}@{host}:{porta}/{banco}"
