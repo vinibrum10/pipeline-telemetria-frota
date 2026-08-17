@@ -145,3 +145,13 @@ def test_deduplica_por_event_id_mantendo_loaded_at_mais_recente(apply_views, ins
 def test_sem_dados_em_raw_view_fica_vazia(apply_views, fetch_all):
     linhas = fetch_all("SELECT * FROM staging.eventos")
     assert linhas == []
+
+def test_severidade_nunca_e_nula(apply_views, insert_raw, fetch_all):
+    insert_raw("eventos", [
+        _evento(event_id="evt-sev-1", severity=3),
+        _evento(event_id="evt-sev-2", severity=5),
+    ])
+
+    linhas = fetch_all("SELECT severidade FROM staging.eventos")
+    assert len(linhas) == 2
+    assert all(linha["severidade"] is not None for linha in linhas)
