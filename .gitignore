@@ -222,3 +222,4 @@ data/seed/
 
 # Variáveis de ambiente
 .env
+tests/.env.test
