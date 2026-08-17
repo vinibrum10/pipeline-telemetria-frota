@@ -73,6 +73,7 @@ def _schemas(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS staging"))
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS marts"))
 
 
 def _raw_ddl(tabela: str, chave: str) -> str:
