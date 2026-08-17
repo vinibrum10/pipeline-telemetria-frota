@@ -53,7 +53,11 @@ def _build_url() -> str:
 
 @pytest.fixture(scope="session")
 def engine() -> Engine:
-    """Engine apontando para o Postgres de teste; pula o suite se ele não responder."""
+    """Create an SQLAlchemy engine for the test PostgreSQL database.
+    
+    Returns:
+        Engine: A connected SQLAlchemy engine.
+    """
     try:
         import psycopg2  # noqa: F401
     except ImportError:
