@@ -60,11 +60,7 @@ def engine() -> Engine:
         pytest.skip("psycopg2 não instalado - pulando testes de integração com Postgres")
 
     eng = create_engine(_build_url())
-    try:
-        with eng.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception as exc:  # noqa: BLE001 - qualquer erro de conexão => skip
-        pytest.skip(f"Postgres indisponível para testes de integração ({exc!r})")
+    eng.connect().close()  # se o Postgres não estiver acessível, falha aqui — não esconde com skip
     return eng
 
 
