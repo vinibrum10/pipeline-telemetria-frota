@@ -140,15 +140,16 @@ validação e formatação sem envolver nenhum documento real.
 
 Concluído:
 - [x] Extração da API de telemetria
-- [x] Carga em PostgreSQL (staging)
+- [x] Carga em PostgreSQL (staging), com testes de lógica e qualidade de dado
+- [x] Camada de marts (modelagem dimensional para consumo em painéis)
 - [x] Ambiente containerizado (Postgres + Metabase)
 - [x] Gerador de dados sintéticos
 
 Em andamento:
-- [ ] Camada de transformação com modelagem dimensional
+- [ ] Painéis de segurança operacional no Metabase
+- [ ] Log de execução e observabilidade
 - [ ] Ingestão da segunda fonte (documentos corporativos via API)
 - [ ] Orquestração e atualização periódica
-- [ ] Painéis de segurança operacional
 
 ---
 
