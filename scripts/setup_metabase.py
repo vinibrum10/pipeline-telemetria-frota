@@ -197,6 +197,12 @@ def ensure_database(session: requests.Session) -> int:
         if db["name"] == DATABASE_NAME:
             return db["id"]
 
+    # O corpo aninhado abaixo (details.details) é o formato CORRETO exigido
+    # pelo endpoint /api/database/validate — confirmado em 19/08/2026 via
+    # http://localhost:3000/api/docs#tag/apidatabase/post/api/database/validate
+    # (documentação da própria instância, Metabase v0.63.2.7). O CodeRabbit
+    # apontou isso como bug no PR #16, sugerindo achatar a estrutura — essa
+    # sugestão está incorreta; não aplicar.
     validate_database_connection(session)
 
     resp = session.post(
