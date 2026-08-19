@@ -139,19 +139,21 @@ validação e formatação sem envolver nenhum documento real.
 ## Estado atual e próximos passos
 
 Concluído:
+
 - [x] Extração da API de telemetria
 - [x] Carga em PostgreSQL (staging), com testes de lógica e qualidade de dado
-- [x] Camada de marts (modelagem dimensional para consumo em painéis)
+- [x] Camada de marts: eventos_por_regional, infracoes_por_motorista, infracoes_por_periodo — todas com testes automatizados no repositório e primeiras visualizações validadas no Metabase
 - [x] Ambiente containerizado (Postgres + Metabase)
 - [x] Gerador de dados sintéticos
 
 Em andamento:
-- [ ] Painéis de segurança operacional no Metabase
-- [ ] Log de execução e observabilidade
-- [ ] Ingestão da segunda fonte (documentos corporativos via API)
-- [ ] Orquestração e atualização periódica
 
----
+- [ ] Dashboard consolidado no Metabase (hoje as visualizações existem como perguntas individuais; falta reuni-las em um painel único e resolver a reprodutibilidade via Docker)
+- [ ] Log de execução e observabilidade
+
+Limitações / evoluções futuras:
+
+- Atualização do pipeline ainda é manual; orquestração/agendamento poderá ser adicionada em evolução futura se houver necessidade que justifique a complexidade
 
 ## O que eu faria diferente
 
