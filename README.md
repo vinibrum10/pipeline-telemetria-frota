@@ -100,7 +100,10 @@ python -m venv .venv
 
 pip install -r requirements.txt
 python scripts/gerar_dados_fake.py
+python scripts/setup_metabase.py
 ```
+
+Configura o Metabase automaticamente — cria o usuário admin (se necessário), conecta ao Postgres, e recria as 4 perguntas e o dashboard "Segurança Operacional — Frota" via API.
 
 Isso gera, em `data/seed/`:
 
@@ -145,11 +148,11 @@ Concluído:
 - [x] Camada de marts: eventos_por_regional, infracoes_por_motorista, infracoes_por_periodo — todas com testes automatizados no repositório e primeiras visualizações validadas no Metabase
 - [x] Ambiente containerizado (Postgres + Metabase)
 - [x] Gerador de dados sintéticos
+- [x] Dashboard consolidado no Metabase, reproduzível via `scripts/setup_metabase.py`, que recria a conexão com o banco, as 4 perguntas e o dashboard via API em uma instância nova
 
 Em andamento:
 
-- [ ] Dashboard consolidado no Metabase (hoje as visualizações existem como perguntas individuais; falta reuni-las em um painel único e resolver a reprodutibilidade via Docker)
-- [ ] Log de execução e observabilidade
+- [ ] Fechamento de qualidade e observabilidade: testes de contagem/duplicidade, log de execução e observabilidade mínima
 
 Limitações / evoluções futuras:
 
