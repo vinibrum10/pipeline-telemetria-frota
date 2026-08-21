@@ -116,10 +116,10 @@ def test_reconciliacao_eventos_por_regional_staging_vs_mart(apply_views, insert_
         GROUP BY COALESCE(m.regional, 'SEM REGIONAL'), e.tipo_evento
         """
     )
-    esperado = {(l["regional"], l["tipo_evento"]): l["total_eventos"] for l in reconciliado}
+    esperado = {(linha["regional"], linha["tipo_evento"]): linha["total_eventos"] for linha in reconciliado}
 
     linhas_mart = fetch_all("SELECT regional, tipo_evento, total_eventos FROM marts.eventos_por_regional")
-    obtido = {(l["regional"], l["tipo_evento"]): l["total_eventos"] for l in linhas_mart}
+    obtido = {(linha["regional"], linha["tipo_evento"]): linha["total_eventos"] for linha in linhas_mart}
 
     assert obtido == esperado
     assert obtido == {
@@ -161,10 +161,10 @@ def test_reconciliacao_infracoes_por_motorista_staging_vs_mart(apply_views, inse
         GROUP BY e.motorista_id
         """
     )
-    esperado = {l["motorista_id"]: l["total_eventos"] for l in reconciliado}
+    esperado = {linha["motorista_id"]: linha["total_eventos"] for linha in reconciliado}
 
     linhas_mart = fetch_all("SELECT motorista_id, total_eventos FROM marts.infracoes_por_motorista")
-    obtido = {l["motorista_id"]: l["total_eventos"] for l in linhas_mart}
+    obtido = {linha["motorista_id"]: linha["total_eventos"] for linha in linhas_mart}
 
     assert obtido == esperado
     assert obtido == {"motorista-a": 2, "motorista-b": 1, "motorista-inexistente": 1}
@@ -195,10 +195,10 @@ def test_reconciliacao_infracoes_por_periodo_staging_vs_mart(apply_views, insert
         GROUP BY date_trunc('day', ocorrido_em)::date
         """
     )
-    esperado = {l["data_referencia"]: l["total_eventos"] for l in reconciliado}
+    esperado = {linha["data_referencia"]: linha["total_eventos"] for linha in reconciliado}
 
     linhas_mart = fetch_all("SELECT data_referencia, total_eventos FROM marts.infracoes_por_periodo")
-    obtido = {l["data_referencia"]: l["total_eventos"] for l in linhas_mart}
+    obtido = {linha["data_referencia"]: linha["total_eventos"] for linha in linhas_mart}
 
     assert obtido == esperado
     assert obtido == {date(2024, 3, 1): 2, date(2024, 3, 2): 1}
