@@ -221,5 +221,6 @@ __marimo__/
 data/seed/
 
 # Variáveis de ambiente
-.env
 tests/.env.test
+
+logs/*.jsonl

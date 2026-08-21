@@ -155,6 +155,34 @@ Limitações / evoluções futuras:
 
 - Atualização do pipeline ainda é manual; orquestração/agendamento poderá ser adicionada em evolução futura se houver necessidade que justifique a complexidade
 
+## Log de execução
+
+Cada execução de `python -m src.main` grava uma linha em `logs/execucoes.jsonl`
+(formato [JSON Lines](https://jsonlines.org/) - um objeto JSON por linha, um por
+execução). O arquivo é gerado localmente e ignorado pelo Git (`logs/*.jsonl` no
+`.gitignore`); a tabela abaixo é a referência para interpretá-lo.
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `execucao_id` | string (UUID) | Identificador único da execução |
+| `inicio` / `fim` | string (ISO 8601, UTC) | Início e fim da execução |
+| `duracao_segundos` | number | Duração total, em segundos |
+| `status` | `"sucesso"` \| `"falha"` | Resultado da execução |
+| `etapa_falha` | string \| `null` | Etapa onde o erro ocorreu (`leitura_fontes`, `conexao`, `carga_motoristas`, `carga_eventos`, `carga_regionais`); `null` quando `status` é `"sucesso"` |
+| `motoristas_processados` | int \| `null` | Registros lidos e enviados ao upsert por `load_motoristas` |
+| `eventos_processados` | int \| `null` | Registros lidos e enviados ao upsert por `load_eventos` |
+| `de_para_processados` | int \| `null` | Registros lidos e enviados ao upsert por `load_de_para_regional` |
+| `erro` | string \| `null` | Mensagem da exceção, quando `status` é `"falha"` |
+
+**Nota sobre "processados"**: as contagens refletem quantos registros foram
+lidos da fonte e enviados ao upsert - não necessariamente quantas linhas
+foram de fato inseridas vs. atualizadas no banco (o upsert em
+`raw_loader.py` não distingue as duas coisas).
+
+Exemplo de linha (execução com sucesso):
+
+    {"execucao_id": "a1b2c3d4-...", "inicio": "2026-08-21T18:00:00+00:00", "fim": "2026-08-21T18:00:08+00:00", "duracao_segundos": 8.312, "status": "sucesso", "etapa_falha": null, "motoristas_processados": 42, "eventos_processados": 310, "de_para_processados": 42, "erro": null}
+
 ## O que eu faria diferente
 
 **Teria começado pelo modelo dimensional.** Comecei carregando dados brutos e pensando
