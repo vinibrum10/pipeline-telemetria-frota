@@ -19,6 +19,7 @@ def _registrar_execucao(
     etapa_falha: "str | None",
     erro: "str | None",
 ) -> None:
+    """Grava uma linha JSON em logs/execucoes.jsonl com o resultado da execução."""
     fim = datetime.now(timezone.utc)
     registro = {
         "execucao_id": str(uuid.uuid4()),
@@ -38,6 +39,7 @@ def _registrar_execucao(
 
 
 def main() -> None:
+    """Orquestra extract -> load das três fontes para o schema raw, registrando a execução."""
     inicio = datetime.now(timezone.utc)
     contagens: dict[str, int] = {}
     etapa_atual = "leitura_fontes"

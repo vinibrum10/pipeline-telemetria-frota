@@ -19,17 +19,20 @@ from src import main as main_module
 
 @pytest.fixture(autouse=True)
 def _log_path_temporario(tmp_path, monkeypatch):
+    """Redireciona main_module.LOG_PATH para um arquivo temporário em cada teste."""
     caminho = tmp_path / "execucoes.jsonl"
     monkeypatch.setattr(main_module, "LOG_PATH", caminho)
     return caminho
 
 
 def _ler_ultima_linha(caminho) -> dict:
+    """Lê o arquivo JSON lines e devolve a última linha já parseada como dict."""
     linhas = caminho.read_text(encoding="utf-8").strip().splitlines()
     return json.loads(linhas[-1])
 
 
 def test_execucao_com_sucesso_registra_status_e_contagens(monkeypatch, _log_path_temporario):
+    """Uma execução bem-sucedida registra status='sucesso', contagens corretas e nenhum erro."""
     monkeypatch.setattr(main_module, "read_motoristas", lambda: [{"id": "1"}, {"id": "2"}])
     monkeypatch.setattr(main_module, "read_eventos", lambda: [{"event_id": "e1"}])
     monkeypatch.setattr(main_module, "read_de_para_regional", lambda: [])
@@ -51,6 +54,7 @@ def test_execucao_com_sucesso_registra_status_e_contagens(monkeypatch, _log_path
 
 
 def test_falha_na_carga_de_eventos_registra_etapa_e_contagens_parciais(monkeypatch, _log_path_temporario):
+    """Uma falha na etapa de carga de eventos registra a etapa exata e preserva as contagens já feitas."""
     monkeypatch.setattr(main_module, "read_motoristas", lambda: [{"id": "1"}])
     monkeypatch.setattr(main_module, "read_eventos", lambda: [{"event_id": "e1"}])
     monkeypatch.setattr(main_module, "read_de_para_regional", lambda: [])
@@ -58,6 +62,7 @@ def test_falha_na_carga_de_eventos_registra_etapa_e_contagens_parciais(monkeypat
     monkeypatch.setattr(main_module, "load_motoristas", lambda engine, registros: len(registros))
 
     def _falha_carga_eventos(engine, registros):
+        """Simula uma falha de conexão durante a carga de eventos."""
         raise RuntimeError("conexão perdida durante carga de eventos")
 
     monkeypatch.setattr(main_module, "load_eventos", _falha_carga_eventos)
@@ -74,12 +79,16 @@ def test_falha_na_carga_de_eventos_registra_etapa_e_contagens_parciais(monkeypat
 
 
 def test_falha_ao_escrever_log_nao_esconde_erro_original(monkeypatch, _log_path_temporario):
+    """Se o pipeline falha E o log também falha ao ser escrito, o erro original do pipeline deve propagar."""
+
     def _falha_leitura():
+        """Simula uma falha na leitura da fonte de motoristas."""
         raise RuntimeError("fonte indisponível")
 
     monkeypatch.setattr(main_module, "read_motoristas", _falha_leitura)
 
     def _registrar_com_falha(*args, **kwargs):
+        """Simula uma falha ao escrever o arquivo de log (ex: disco cheio)."""
         raise OSError("disco cheio - não foi possível escrever o log")
 
     monkeypatch.setattr(main_module, "_registrar_execucao", _registrar_com_falha)
@@ -89,6 +98,7 @@ def test_falha_ao_escrever_log_nao_esconde_erro_original(monkeypatch, _log_path_
 
 
 def test_falha_ao_escrever_log_apos_sucesso_nao_interrompe_execucao(monkeypatch, capsys):
+    """Se o pipeline tem sucesso mas o log falha ao ser escrito, main() ainda retorna normalmente, só avisando em stderr."""
     monkeypatch.setattr(main_module, "read_motoristas", lambda: [{"id": "1"}])
     monkeypatch.setattr(main_module, "read_eventos", lambda: [{"event_id": "e1"}])
     monkeypatch.setattr(main_module, "read_de_para_regional", lambda: [])
@@ -98,6 +108,7 @@ def test_falha_ao_escrever_log_apos_sucesso_nao_interrompe_execucao(monkeypatch,
     monkeypatch.setattr(main_module, "load_de_para_regional", lambda engine, registros: len(registros))
 
     def _registrar_com_falha(*args, **kwargs):
+        """Simula uma falha ao escrever o arquivo de log (ex: disco cheio)."""
         raise OSError("disco cheio - não foi possível escrever o log")
 
     monkeypatch.setattr(main_module, "_registrar_execucao", _registrar_com_falha)
