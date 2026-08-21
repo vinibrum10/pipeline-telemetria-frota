@@ -33,27 +33,56 @@ O gargalo não é falta de dado. É falta de conexão entre os dados.
 
 ## A solução
 
-```
-┌─────────────────┐
-│  API telemetria │──┐
-└─────────────────┘  │
-                     │   ┌──────────┐   ┌────────────┐   ┌──────────┐
-┌─────────────────┐  ├──▶│ Extração │──▶│ PostgreSQL │──▶│ Metabase │
-│ Planilha regional│──┤   │  (Python)│   │  staging + │   │ (painéis)│
-└─────────────────┘  │   └──────────┘   │   analytics│   └──────────┘
-                     │                  └────────────┘
-┌─────────────────┐  │
-│ Fontes futuras  │──┘
-└─────────────────┘
+```mermaid
+flowchart LR
+    subgraph Sources["Fontes sintéticas"]
+        S1["motoristas.json"]
+        S2["eventos.json"]
+        S3["de_para_regional.csv"]
+    end
+
+    MAIN["src/main.py<br/>extract + load"]
+    LOG[("logs/execucoes.jsonl")]
+    RAW[("raw<br/>payload JSONB · upsert")]
+    STG[("staging<br/>tipagem · normalização · dedup")]
+
+    subgraph MARTS["marts"]
+        M1["eventos_por_regional"]
+        M2["infracoes_por_motorista"]
+        M3["infracoes_por_periodo"]
+    end
+
+    SETUP["scripts/setup_metabase.py"]
+    BI["Metabase<br/>Segurança Operacional — Frota"]
+
+    Sources --> MAIN --> RAW
+    MAIN -.->|grava| LOG
+    RAW -->|"views SQL de src/transform/*.sql<br/>aplicação manual"| STG
+    STG -->|"views SQL de src/transform/*.sql<br/>aplicação manual"| MARTS
+    MARTS -->|"consultas SQL"| BI
+    SETUP -->|"configura via API"| BI
+
+    TQ["pytest — tipagem, nulos, dedup"]
+    TR["pytest — reconciliação por chave"]
+    TL["pytest — logging (sucesso, falha, etapa)"]
+
+    TQ -.->|observa| STG
+    TR -.->|observa| STG
+    TR -.->|observa| MARTS
+    TL -.->|observa| MAIN
+    TL -.->|observa| LOG
 ```
 
-Três camadas, cada uma com uma responsabilidade única:
+Três camadas de dados no PostgreSQL, cada uma com uma responsabilidade única:
 
-1. **Extração** — cada fonte tem seu próprio módulo, isolado. Trocar de fornecedor de
-   telemetria não deve exigir mexer no resto do pipeline.
-2. **Staging + transformação** — dados brutos entram como chegaram, sem perda. A
-   limpeza e o cruzamento acontecem depois, em SQL, de forma auditável.
-3. **Consumo** — painéis leem apenas as tabelas tratadas, nunca a fonte bruta.
+1. **raw** — payload JSONB fiel à fonte, carregado por upsert via `src/main.py`
+   (extract + load). Nenhuma transformação acontece aqui.
+2. **staging** — views SQL que tipam, normalizam, relacionam (JOIN com o de-para
+   regional) e deduplicam por chave natural, mantendo sempre o `loaded_at` mais
+   recente.
+3. **marts** — três views analíticas (`eventos_por_regional`,
+   `infracoes_por_motorista`, `infracoes_por_periodo`), consumidas exclusivamente
+   pelo Metabase — nunca a camada raw diretamente.
 
 ---
 
@@ -149,6 +178,7 @@ Concluído:
 - [x] Ambiente containerizado (Postgres + Metabase)
 - [x] Gerador de dados sintéticos
 - [x] Dashboard consolidado no Metabase, reproduzível via `scripts/setup_metabase.py`, que recria a conexão com o banco, as 4 perguntas e o dashboard via API em uma instância nova
+- [x] Diagrama de arquitetura documentando fluxo de dados, aplicação manual das views e testes de contrato
 
 Em andamento:
 
