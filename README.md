@@ -179,10 +179,7 @@ Concluído:
 - [x] Gerador de dados sintéticos
 - [x] Dashboard consolidado no Metabase, reproduzível via `scripts/setup_metabase.py`, que recria a conexão com o banco, as 4 perguntas e o dashboard via API em uma instância nova
 - [x] Diagrama de arquitetura documentando fluxo de dados, aplicação manual das views e testes de contrato
-
-Em andamento:
-
-- [ ] Fechamento de qualidade e observabilidade: testes de contagem/duplicidade, log de execução e observabilidade mínima
+- [x] Fechamento de qualidade e observabilidade: testes de contagem/duplicidade, log de execução e observabilidade mínima
 
 Limitações / evoluções futuras:
 
