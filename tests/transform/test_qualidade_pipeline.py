@@ -1,14 +1,16 @@
 """
 Testes de reconciliação entre staging.eventos e as marts derivadas dela.
 
-Cobre o requisito de "contagem" do Módulo 7.1: garante que os LEFT JOINs e
-GROUP BYs usados nas marts (004, 005, 006) não perdem, duplicam nem
-reagrupam eventos incorretamente. A reconciliação é feita por chave de
-grupo (não só pela soma global), porque um evento atribuído ao grupo
-errado por um bug de JOIN manteria a soma total igual - só comparar por
-chave pega esse caso. Deduplicação por chave natural já é coberta nos
-testes de staging (test_eventos.py, test_motoristas.py,
-test_de_para_regional.py) e não é repetida aqui.
+Cobre o requisito de "contagem" do Módulo 7.1: para cada mart, a
+reconciliação é feita executando, contra staging.eventos/staging.motoristas,
+uma query independente que espelha o mesmo JOIN/GROUP BY da mart (não um
+dicionário de valores fixados a mão) - se o JOIN da view for alterado (ex.:
+LEFT JOIN virar INNER JOIN, perdendo eventos sem motorista cadastrado), a
+reconciliação diverge e o teste falha. Um segundo assert, com valores
+conferidos manualmente, ancora que as duas queries não estão erradas do
+mesmo jeito. Deduplicação por chave natural já é coberta nos testes de
+staging (test_eventos.py, test_motoristas.py, test_de_para_regional.py) e
+não é repetida aqui.
 
 Depende de staging.eventos, staging.motoristas e staging.de_para_regional
 (001-003) já aplicadas - feito pela fixture `apply_views`.
@@ -72,11 +74,11 @@ def _de_para(**overrides) -> dict:
     return base
 
 
-def test_contagem_por_grupo_bate_com_staging_eventos_evita_grupo_trocado(apply_views, insert_raw, fetch_all):
+def test_reconciliacao_eventos_por_regional_staging_vs_mart(apply_views, insert_raw, fetch_all):
     """
-    Reconcilia staging.eventos e marts.eventos_por_regional por grupo
-    (regional, tipo_evento), não só pelo total global - um bug no LEFT JOIN
-    que jogasse um evento pro grupo errado manteria a soma global igual.
+    Recalcula (regional, tipo_evento) -> total_eventos diretamente de
+    staging.eventos + staging.motoristas (mesmo JOIN da mart) e compara
+    contra o que marts.eventos_por_regional de fato retorna.
     """
     insert_raw(
         "motoristas",
@@ -99,26 +101,40 @@ def test_contagem_por_grupo_bate_com_staging_eventos_evita_grupo_trocado(apply_v
             _evento(event_id="evt-2", driver_id="motorista-sudeste", event_type="EXCESSO_VELOCIDADE"),
             _evento(event_id="evt-3", driver_id="motorista-sul", event_type="EXCESSO_VELOCIDADE"),
             _evento(event_id="evt-4", driver_id="motorista-sul", event_type="USO_CELULAR"),
+            _evento(event_id="evt-5", driver_id="motorista-inexistente", event_type="FRENAGEM_BRUSCA"),
         ],
     )
 
-    esperado = {
+    reconciliado = fetch_all(
+        """
+        SELECT
+            COALESCE(m.regional, 'SEM REGIONAL') AS regional,
+            e.tipo_evento,
+            COUNT(*) AS total_eventos
+        FROM staging.eventos e
+        LEFT JOIN staging.motoristas m ON m.motorista_id = e.motorista_id
+        GROUP BY COALESCE(m.regional, 'SEM REGIONAL'), e.tipo_evento
+        """
+    )
+    esperado = {(linha["regional"], linha["tipo_evento"]): linha["total_eventos"] for linha in reconciliado}
+
+    linhas_mart = fetch_all("SELECT regional, tipo_evento, total_eventos FROM marts.eventos_por_regional")
+    obtido = {(linha["regional"], linha["tipo_evento"]): linha["total_eventos"] for linha in linhas_mart}
+
+    assert obtido == esperado
+    assert obtido == {
         ("Sudeste", "EXCESSO_VELOCIDADE"): 2,
         ("Sul", "EXCESSO_VELOCIDADE"): 1,
         ("Sul", "USO_CELULAR"): 1,
+        ("SEM REGIONAL", "FRENAGEM_BRUSCA"): 1,
     }
-
-    linhas = fetch_all("SELECT regional, tipo_evento, total_eventos FROM marts.eventos_por_regional")
-    obtido = {(linha["regional"], linha["tipo_evento"]): linha["total_eventos"] for linha in linhas}
-
-    assert obtido == esperado
-    assert len(linhas) == len(obtido), "há chave (regional, tipo_evento) duplicada na mart"
+    assert len(linhas_mart) == len(obtido), "há chave (regional, tipo_evento) duplicada na mart"
 
 
-def test_contagem_por_motorista_bate_com_staging_eventos_evita_grupo_trocado(apply_views, insert_raw, fetch_all):
+def test_reconciliacao_infracoes_por_motorista_staging_vs_mart(apply_views, insert_raw, fetch_all):
     """
-    Reconcilia staging.eventos e marts.infracoes_por_motorista por
-    motorista_id, não só pelo total global.
+    Recalcula motorista_id -> total_eventos diretamente de staging.eventos e
+    compara contra o que marts.infracoes_por_motorista de fato retorna.
     """
     insert_raw(
         "motoristas",
@@ -133,22 +149,33 @@ def test_contagem_por_motorista_bate_com_staging_eventos_evita_grupo_trocado(app
             _evento(event_id="evt-1", driver_id="motorista-a"),
             _evento(event_id="evt-2", driver_id="motorista-a"),
             _evento(event_id="evt-3", driver_id="motorista-b"),
+            _evento(event_id="evt-4", driver_id="motorista-inexistente"),
         ],
     )
 
-    esperado = {"motorista-a": 2, "motorista-b": 1}
-    linhas = fetch_all("SELECT motorista_id, total_eventos FROM marts.infracoes_por_motorista")
-    obtido = {linha["motorista_id"]: linha["total_eventos"] for linha in linhas}
+    reconciliado = fetch_all(
+        """
+        SELECT e.motorista_id, COUNT(*) AS total_eventos
+        FROM staging.eventos e
+        LEFT JOIN staging.motoristas m ON m.motorista_id = e.motorista_id
+        GROUP BY e.motorista_id
+        """
+    )
+    esperado = {linha["motorista_id"]: linha["total_eventos"] for linha in reconciliado}
+
+    linhas_mart = fetch_all("SELECT motorista_id, total_eventos FROM marts.infracoes_por_motorista")
+    obtido = {linha["motorista_id"]: linha["total_eventos"] for linha in linhas_mart}
 
     assert obtido == esperado
-    assert len(linhas) == len(obtido), "há motorista_id duplicado na mart"
+    assert obtido == {"motorista-a": 2, "motorista-b": 1, "motorista-inexistente": 1}
+    assert len(linhas_mart) == len(obtido), "há motorista_id duplicado na mart"
 
 
-def test_contagem_por_periodo_bate_com_staging_eventos_evita_dia_trocado(apply_views, insert_raw, fetch_all):
+def test_reconciliacao_infracoes_por_periodo_staging_vs_mart(apply_views, insert_raw, fetch_all):
     """
-    Reconcilia staging.eventos (filtrada por ocorrido_em IS NOT NULL) e
-    marts.infracoes_por_periodo por data_referencia, não só pelo total
-    global.
+    Recalcula data_referencia -> total_eventos diretamente de
+    staging.eventos (filtrada por ocorrido_em IS NOT NULL) e compara contra
+    o que marts.infracoes_por_periodo de fato retorna.
     """
     insert_raw(
         "eventos",
@@ -160,12 +187,22 @@ def test_contagem_por_periodo_bate_com_staging_eventos_evita_dia_trocado(apply_v
         ],
     )
 
-    esperado = {date(2024, 3, 1): 2, date(2024, 3, 2): 1}
-    linhas = fetch_all("SELECT data_referencia, total_eventos FROM marts.infracoes_por_periodo")
-    obtido = {linha["data_referencia"]: linha["total_eventos"] for linha in linhas}
+    reconciliado = fetch_all(
+        """
+        SELECT date_trunc('day', ocorrido_em)::date AS data_referencia, COUNT(*) AS total_eventos
+        FROM staging.eventos
+        WHERE ocorrido_em IS NOT NULL
+        GROUP BY date_trunc('day', ocorrido_em)::date
+        """
+    )
+    esperado = {linha["data_referencia"]: linha["total_eventos"] for linha in reconciliado}
+
+    linhas_mart = fetch_all("SELECT data_referencia, total_eventos FROM marts.infracoes_por_periodo")
+    obtido = {linha["data_referencia"]: linha["total_eventos"] for linha in linhas_mart}
 
     assert obtido == esperado
-    assert len(linhas) == len(obtido), "há data_referencia duplicada na mart"
+    assert obtido == {date(2024, 3, 1): 2, date(2024, 3, 2): 1}
+    assert len(linhas_mart) == len(obtido), "há data_referencia duplicada na mart"
 
 
 def test_marts_ficam_vazias_quando_nao_ha_eventos(apply_views, fetch_all):
