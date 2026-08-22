@@ -42,25 +42,92 @@ RAW_TABLES: dict[str, str] = {
 }
 
 
+def _test_db_name() -> str:
+    # NUNCA usar POSTGRES_DB aqui: esse é o banco operacional (o que
+    # src/main.py carrega). Os testes de integração têm um banco próprio,
+    # isolado, para poder truncar tabelas livremente sem risco de apagar
+    # dado real - ver histórico: rodar contra POSTGRES_DB causou
+    # UniqueViolation nos testes de dedup (tabelas raw já existiam com PK)
+    # e truncou o schema raw do banco operacional.
+    return os.environ.get("POSTGRES_TEST_DB", "elo_test")
+
+
 def _build_url() -> str:
     usuario = os.environ.get("POSTGRES_USER", "elo_user")
     senha = os.environ.get("POSTGRES_PASSWORD", "troque_esta_senha")
-    banco = os.environ.get("POSTGRES_DB", "elo_test")
     porta = os.environ.get("POSTGRES_PORT", "5432")
     host = os.environ.get("POSTGRES_HOST", "localhost")
-    return f"postgresql+psycopg2://{usuario}:{senha}@{host}:{porta}/{banco}"
+    return f"postgresql+psycopg2://{usuario}:{senha}@{host}:{porta}/{_test_db_name()}"
+
+
+def _build_maintenance_url() -> str:
+    """URL para o banco de manutenção `postgres`, usado só para criar o banco de teste."""
+    usuario = os.environ.get("POSTGRES_USER", "elo_user")
+    senha = os.environ.get("POSTGRES_PASSWORD", "troque_esta_senha")
+    porta = os.environ.get("POSTGRES_PORT", "5432")
+    host = os.environ.get("POSTGRES_HOST", "localhost")
+    return f"postgresql+psycopg2://{usuario}:{senha}@{host}:{porta}/postgres"
+
+
+def _ensure_test_database_exists() -> None:
+    """
+    Cria o banco de teste (POSTGRES_TEST_DB) se ele ainda não existir.
+    Conecta ao banco de manutenção `postgres` do mesmo servidor com
+    autocommit, porque CREATE DATABASE não pode rodar dentro de uma
+    transação.
+    """
+    nome = _test_db_name()
+    eng = create_engine(_build_maintenance_url(), isolation_level="AUTOCOMMIT")
+    try:
+        with eng.connect() as conn:
+            existe = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :nome"), {"nome": nome}
+            ).scalar()
+            if not existe:
+                # `nome` vem de variável de ambiente controlada pelo próprio
+                # projeto (.env / .env.example), não de input externo.
+                conn.execute(text(f'CREATE DATABASE "{nome}"'))
+    finally:
+        eng.dispose()
+
+
+def _assert_e_banco_de_teste(conn) -> None:
+    """
+    Trava de segurança independente da configuração: mesmo que
+    POSTGRES_TEST_DB esteja mal configurado e aponte sem querer para o
+    banco operacional, os testes recusam continuar em vez de rodar
+    CREATE SCHEMA/TRUNCATE nele. Exige que o banco realmente conectado
+    termine em "_test".
+    """
+    nome_banco = conn.execute(text("SELECT current_database()")).scalar()
+    if not nome_banco.endswith("_test"):
+        raise RuntimeError(
+            f"Recusando rodar os testes de integração no banco '{nome_banco}': "
+            "o nome não termina em '_test'. Essa trava existe para nunca truncar "
+            "acidentalmente o banco operacional. Configure POSTGRES_TEST_DB no "
+            "seu .env com um nome terminado em '_test' (ex.: elo_test)."
+        )
 
 
 @pytest.fixture(scope="session")
 def engine() -> Engine:
-    """Engine apontando para o Postgres de teste; pula o suite se ele não responder."""
+    """
+    Engine apontando para o banco de TESTE (POSTGRES_TEST_DB), nunca para o
+    banco operacional (POSTGRES_DB). Cria o banco de teste se ele ainda não
+    existir e recusa continuar se a conexão resolvida não apontar
+    claramente para um banco de teste. Pula o suite se o Postgres não
+    responder.
+    """
     try:
         import psycopg2  # noqa: F401
     except ImportError:
         pytest.skip("psycopg2 não instalado - pulando testes de integração com Postgres")
 
+    _ensure_test_database_exists()
+
     eng = create_engine(_build_url())
-    eng.connect().close()  # se o Postgres não estiver acessível, falha aqui — não esconde com skip
+    with eng.connect() as conn:  # se o Postgres não estiver acessível, falha aqui — não esconde com skip
+        _assert_e_banco_de_teste(conn)
     return eng
 
 
