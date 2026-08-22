@@ -139,8 +139,9 @@ pip install -r requirements.txt
 python scripts/gerar_dados_fake.py     # gera os dados sintéticos em data/seed/
 python -m src.main                     # extract + load: fontes -> schema raw
 
-set -a && source .env && set +a        # Linux/macOS: exporta as variáveis do .env
-# no Windows, defina as variáveis manualmente antes do próximo passo
+# Este bloco usa sintaxe Bash. No Windows, rode-o pelo Git Bash ou WSL
+# (o restante do projeto funciona em PowerShell; só esta parte exige Bash).
+set -a && source .env && set +a        # exporta as variáveis do .env para o shell
 for f in src/transform/*.sql; do
   docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$f"
 done
@@ -151,10 +152,11 @@ python scripts/setup_metabase.py
 
 Configura o Metabase automaticamente — cria o usuário admin (se necessário), conecta ao Postgres, e recria as 4 perguntas e o dashboard "Segurança Operacional — Frota" via API.
 
-Para conferir o resultado, abra `http://localhost:3000`, entre com o e-mail/senha
-definidos no `.env` (`METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD`) e veja o
-dashboard "Segurança Operacional — Frota". Para rodar os testes automatizados,
-com os containers de pé: `pytest`.
+Para conferir o resultado, abra `http://localhost:${METABASE_PORT}` (o valor
+definido no seu `.env` — por padrão `http://localhost:3000`), entre com o
+e-mail/senha definidos lá (`METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD`)
+e veja o dashboard "Segurança Operacional — Frota". Para rodar os testes
+automatizados, com os containers de pé: `pytest`.
 
 O passo de gerar dados sintéticos, acima, produz em `data/seed/`:
 
