@@ -123,18 +123,40 @@ Pré-requisitos: Python 3.12+, Docker Desktop.
 git clone https://github.com/vinibrum10/pipeline-telemetria-frota.git
 cd pipeline-telemetria-frota
 
+cp .env.example .env
+# os valores padrão já funcionam para rodar local; ajuste se quiser
+
+docker compose up -d
+# sobe Postgres (cria os schemas raw/staging/marts automaticamente, via
+# db/init) e Metabase. Confira com `docker compose ps` que o Postgres
+# está "healthy" antes de seguir.
+
 python -m venv .venv
 .venv\Scripts\Activate.ps1        # Windows
 # source .venv/bin/activate       # Linux/macOS
 
 pip install -r requirements.txt
-python scripts/gerar_dados_fake.py
+python scripts/gerar_dados_fake.py     # gera os dados sintéticos em data/seed/
+python -m src.main                     # extract + load: fontes -> schema raw
+
+set -a && source .env && set +a        # Linux/macOS: exporta as variáveis do .env
+# no Windows, defina as variáveis manualmente antes do próximo passo
+for f in src/transform/*.sql; do
+  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$f"
+done
+# aplica, na ordem numérica dos arquivos, as views de staging e marts
+
 python scripts/setup_metabase.py
 ```
 
 Configura o Metabase automaticamente — cria o usuário admin (se necessário), conecta ao Postgres, e recria as 4 perguntas e o dashboard "Segurança Operacional — Frota" via API.
 
-Isso gera, em `data/seed/`:
+Para conferir o resultado, abra `http://localhost:3000`, entre com o e-mail/senha
+definidos no `.env` (`METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD`) e veja o
+dashboard "Segurança Operacional — Frota". Para rodar os testes automatizados,
+com os containers de pé: `pytest`.
+
+O passo de gerar dados sintéticos, acima, produz em `data/seed/`:
 
 | Arquivo | Conteúdo |
 |---|---|
