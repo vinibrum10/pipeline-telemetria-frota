@@ -158,6 +158,13 @@ e-mail/senha definidos lá (`METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD`)
 e veja o dashboard "Segurança Operacional — Frota". Para rodar os testes
 automatizados, com os containers de pé: `pytest`.
 
+> **Isolamento do banco de testes:** `pytest` usa exclusivamente o banco
+> definido em `POSTGRES_TEST_DB` (padrão `elo_test`), nunca o banco
+> operacional `POSTGRES_DB`. O banco de teste é criado automaticamente na
+> primeira execução, se ainda não existir. Isso existe porque os testes de
+> integração truncam suas tabelas a cada execução — rodá-los contra o banco
+> operacional apagaria os dados carregados pelo pipeline.
+
 O passo de gerar dados sintéticos, acima, produz em `data/seed/`:
 
 | Arquivo | Conteúdo |
